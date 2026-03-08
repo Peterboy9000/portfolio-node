@@ -447,7 +447,7 @@
   <div class="hero-content">
     <p class="hero-eyebrow" id="heroAvailability">// Available for opportunities</p>
     <h1 class="hero-name">Alen Mathew<br><em>Thomas</em></h1>
-    <p class="hero-tagline" id="heroTagline">Senior Software Developer specializing in scalable systems, cloud architecture, and building products that matter.</p>
+    <p class="hero-tagline" id="heroTagline">Loading...</p>
     <div class="hero-actions">
       <a href="#projects" class="btn-primary">View My Work →</a>
       <a href="#contact" class="btn-outline">Get In Touch</a>
@@ -488,12 +488,10 @@
       <h2 class="section-title">Building robust software, one commit at a time.</h2>
       <div class="divider"></div>
       <div id="bioParagraphs">
-        <p>I am a passionate Cloud and Backend Engineer with 4+ years of experience building scalable systems and cloud infrastructure.</p>
+        <p>Loading...</p>
       </div>
       <div class="skills-grid" id="skillsGrid">
-        <span class="skill-tag">AWS</span>
-        <span class="skill-tag">Docker</span>
-        <span class="skill-tag">Kubernetes</span>
+        <span class="skill-tag">Loading...</span>
       </div>
     </div>
   </div>
@@ -794,12 +792,8 @@
 
 
 <script>
-  // ============================================
-  // SUPABASE CONFIG — replace with your keys
-  // ============================================
   const API_URL = 'https://portfolio-node-plum.vercel.app';
 
-  // ─── Load everything from Supabase on page load ───
   document.addEventListener('DOMContentLoaded', async () => {
     await loadProfile();
     await loadProjects();
@@ -809,46 +803,30 @@
     initModalEscape();
   });
 
-  // ─── Load Profile (bio, skills, stats, social links) ───
   async function loadProfile() {
     try {
-      const { data: p } = await db.from('profile').select('*').single();
+      const res = await fetch(`${API_URL}/api/profile`);
+      const p = await res.json();
       if (!p) return;
-
-      // Tagline
       if (p.tagline) document.getElementById('heroTagline').textContent = p.tagline;
-
-      // Availability
       if (p.availability) document.getElementById('heroAvailability').textContent = '// ' + p.availability;
-
-      // Stats
       if (p.years_experience) {
         document.getElementById('statYears').innerHTML = p.years_experience + '<span>+</span>';
         document.getElementById('badgeYears').textContent = p.years_experience;
       }
       if (p.projects_shipped) document.getElementById('statProjects').innerHTML = p.projects_shipped + '<span>+</span>';
       if (p.happy_clients) document.getElementById('statClients').innerHTML = p.happy_clients + '<span>+</span>';
-
-      // Bio paragraphs
       if (p.bio && p.bio.length > 0) {
-        document.getElementById('bioParagraphs').innerHTML = p.bio
-          .map(para => `<p>${para}</p>`).join('');
+        document.getElementById('bioParagraphs').innerHTML = p.bio.map(para => `<p>${para}</p>`).join('');
       }
-
-      // Skills
       if (p.skills && p.skills.length > 0) {
-        document.getElementById('skillsGrid').innerHTML = p.skills
-          .map(skill => `<span class="skill-tag">${skill}</span>`).join('');
+        document.getElementById('skillsGrid').innerHTML = p.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('');
       }
-
-      // Social links
-      if (p.github_url)   document.getElementById('linkGithub').href = p.github_url;
+      if (p.github_url) document.getElementById('linkGithub').href = p.github_url;
       if (p.linkedin_url) document.getElementById('linkLinkedin').href = p.linkedin_url;
       if (p.instagram_url) document.getElementById('linkInstagram').href = p.instagram_url;
-      if (p.whatsapp_url)  document.getElementById('linkWhatsapp').href = p.whatsapp_url;
+      if (p.whatsapp_url) document.getElementById('linkWhatsapp').href = p.whatsapp_url;
       if (p.email) document.getElementById('linkEmail').href = 'mailto:' + p.email;
-
-      // Experience
       if (p.experience && p.experience.length > 0) {
         const sorted = [...p.experience].sort((a, b) => a.order - b.order);
         document.getElementById('experienceList').innerHTML = sorted.map(exp => `
@@ -859,8 +837,7 @@
               <div class="exp-company">${exp.company}</div>
               <div class="exp-desc">${exp.description}</div>
             </div>
-          </div>
-        `).join('');
+          </div>`).join('');
         initScrollReveal();
       }
     } catch (err) {
@@ -868,21 +845,11 @@
     }
   }
 
-  // ─── Load Projects dynamically ───────────────
   async function loadProjects() {
     try {
-      const { data: projects } = await db
-        .from('projects')
-        .select('*')
-        .eq('featured', true)
-        .order('display_order', { ascending: true });
-
-      if (!projects || projects.length === 0) {
-        // fallback to hardcoded modals if no projects in DB
-        loadHardcodedProjects();
-        return;
-      }
-
+      const res = await fetch(`${API_URL}/api/projects`);
+      const projects = await res.json();
+      if (!projects || projects.length === 0) { loadHardcodedProjects(); return; }
       const grid = document.getElementById('projectsGrid');
       grid.innerHTML = projects.map((p, i) => `
         <div class="project-card reveal" style="transition-delay:${i * 0.1}s">
@@ -897,14 +864,9 @@
             <p class="project-desc">${p.description}</p>
             <a href="#" class="project-link" onclick="openProjectModal('${p.id}'); return false;">View Case Study →</a>
           </div>
-        </div>
-      `).join('');
-
-      // Remove old hardcoded modals and create dynamic modal container
+        </div>`).join('');
       const oldModals = document.querySelectorAll('.modal-overlay[id^="modal-"]');
       oldModals.forEach(m => m.remove());
-
-      // Create dynamic modal container
       const modalContainer = document.createElement('div');
       modalContainer.id = 'dynamicModal';
       modalContainer.className = 'modal-overlay';
@@ -918,7 +880,6 @@
         </div>`;
       modalContainer.onclick = (e) => { if (e.target === modalContainer) closeDynModal(); };
       document.body.appendChild(modalContainer);
-
       initScrollReveal();
     } catch (err) {
       console.error('Failed to load projects:', err);
@@ -926,16 +887,12 @@
     }
   }
 
-  // ─── Open dynamic project modal ──────────────
   async function openProjectModal(projectId) {
     try {
-      const { data: p } = await db.from('projects').select('*').eq('id', projectId).single();
+      const res = await fetch(`${API_URL}/api/projects/${projectId}`);
+      const p = await res.json();
       if (!p) return;
-
-      // Track view
-      await db.from('projects').update({ views: (p.views || 0) + 1 }).eq('id', projectId);
-      await db.from('analytics').insert({ type: 'project_view', project_id: projectId, project_title: p.title, user_agent: navigator.userAgent });
-
+      fetch(`${API_URL}/api/projects/${projectId}/view`, { method: 'POST' }).catch(() => {});
       const cs = p.case_study || {};
       document.getElementById('dynModalHero').style = p.gradient || 'background:linear-gradient(135deg,#0f2850,#1e40af)';
       document.getElementById('dynModalHero').textContent = p.emoji || '🚀';
@@ -944,11 +901,6 @@
         <h2 class="modal-title">${p.title}</h2>
         <p class="modal-subtitle">${cs.subtitle || ''}</p>
         <p>${cs.overview || p.description}</p>
-        ${cs.metrics && cs.metrics.length > 0 ? `
-          <div class="modal-section-title">// Key Metrics</div>
-          <div class="modal-metrics">
-            ${cs.metrics.map(m => `<div class="metric-box"><div class="metric-val">${m.value}</div><div class="metric-label">${m.label}</div></div>`).join('')}
-          </div>` : ''}
         ${cs.whatIBuilt && cs.whatIBuilt.length > 0 ? `
           <div class="modal-section-title">// What I Built</div>
           <ul class="modal-bullets">
@@ -956,9 +908,7 @@
           </ul>` : ''}
         ${cs.outcome ? `
           <div class="modal-section-title">// Outcome</div>
-          <p>${cs.outcome}</p>` : ''}
-      `;
-
+          <p>${cs.outcome}</p>` : ''}`;
       document.getElementById('dynamicModal').classList.add('active');
       document.body.style.overflow = 'hidden';
     } catch (err) {
@@ -971,29 +921,26 @@
     if (modal) { modal.classList.remove('active'); document.body.style.overflow = ''; }
   }
 
-  // ─── Fallback hardcoded projects ─────────────
   function loadHardcodedProjects() {
-    // keeps existing hardcoded modals working if DB has no projects
     document.getElementById('projectsGrid').innerHTML = `
       <div class="project-card reveal">
         <div class="project-img" style="background:linear-gradient(135deg,#0f2850,#1e40af)">🚀</div>
         <div class="project-body">
-          <div class="project-tags"><span class="project-tag">AWS</span><span class="project-tag">Docker</span><span class="project-tag">Kubernetes</span></div>
+          <div class="project-tags"><span class="project-tag">AWS</span><span class="project-tag">Docker</span></div>
           <h3 class="project-title">Cloud Infrastructure Platform</h3>
-          <p class="project-desc">Scalable cloud infrastructure built on AWS with Kubernetes orchestration, Terraform automation and CI/CD pipelines.</p>
-          <a href="#" class="project-link" onclick="openModal('orion'); return false;">View Case Study →</a>
+          <p class="project-desc">Scalable cloud infrastructure built on AWS with Kubernetes orchestration.</p>
         </div>
       </div>`;
   }
 
-  // ─── Track Page View ──────────────────────────
-  async function trackPageView() {
-    await db.from('analytics').insert({
-      type: 'page_view', page: '/', user_agent: navigator.userAgent, referrer: document.referrer || null
+  function trackPageView() {
+    fetch(`${API_URL}/api/analytics/pageview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: '/' })
     }).catch(() => {});
   }
 
-  // ─── Old modal functions (fallback) ──────────
   function openModal(id) {
     const el = document.getElementById('modal-' + id);
     if (el) { el.classList.add('active'); document.body.style.overflow = 'hidden'; }
@@ -1006,7 +953,6 @@
     if (event.target === document.getElementById('modal-' + id)) closeModal(id);
   }
 
-  // ─── Escape key closes any modal ─────────────
   function initModalEscape() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -1017,7 +963,6 @@
     });
   }
 
-  // ─── Smooth Scroll ────────────────────────────
   function initSmoothScroll() {
     document.querySelectorAll('a[href^="#"]').forEach(link => {
       link.addEventListener('click', function(e) {
@@ -1028,7 +973,6 @@
     });
   }
 
-  // ─── Scroll Reveal ────────────────────────────
   function initScrollReveal() {
     const revealEls = document.querySelectorAll('.reveal:not(.visible)');
     const observer = new IntersectionObserver((entries) => {
@@ -1039,7 +983,6 @@
     revealEls.forEach(el => observer.observe(el));
   }
 
-  // ─── Contact Form ─────────────────────────────
   async function handleSubmit(e) {
     e.preventDefault();
     const btn = e.target.querySelector('.form-submit');
@@ -1047,28 +990,32 @@
     const email   = document.getElementById('contactEmail').value.trim();
     const subject = document.getElementById('contactSubject').value.trim();
     const message = document.getElementById('contactMessage').value.trim();
-
     if (!name || !email || !subject || !message) {
       btn.textContent = 'Please fill all fields!';
       btn.style.background = '#f59e0b';
       setTimeout(() => { btn.textContent = 'Send Message →'; btn.style.background = ''; }, 2500);
       return;
     }
-
     btn.textContent = 'Sending…'; btn.disabled = true;
-
     try {
-      const { error } = await db.from('messages').insert({ name, email, subject, message });
-      if (error) throw error;
-      await db.from('analytics').insert({ type: 'contact_submit', user_agent: navigator.userAgent });
-      btn.textContent = 'Message Sent! ✓';
-      btn.style.background = '#059669';
-      e.target.reset();
+      const res = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        btn.textContent = 'Message Sent! ✓';
+        btn.style.background = '#059669';
+        e.target.reset();
+      } else {
+        btn.textContent = data.error || 'Something went wrong';
+        btn.style.background = '#ef4444';
+      }
     } catch (err) {
-      btn.textContent = 'Something went wrong';
+      btn.textContent = 'Could not connect to server';
       btn.style.background = '#ef4444';
     }
-
     btn.disabled = false;
     setTimeout(() => { btn.textContent = 'Send Message →'; btn.style.background = ''; }, 3500);
   }
