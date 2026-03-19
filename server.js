@@ -129,6 +129,13 @@ app.get('/api/admin/analytics', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+// Admin - update experience
+app.put('/api/admin/experience', async (req, res) => {
+  const { data: existing } = await supabase.from('profile').select('id').single();
+  const { data, error } = await supabase.from('profile').update({ experience: req.body.experience }).eq('id', existing.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
 
 // ── CATCH ALL ─────────────────────────────────────────
 app.get('*', (req, res) => {
