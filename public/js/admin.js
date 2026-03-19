@@ -250,6 +250,8 @@ async function loadProfile() {
   document.getElementById('socialInstagram').value = p.instagram_url || '';
   document.getElementById('socialWhatsapp').value = p.whatsapp_url || '';
   document.getElementById('socialEmail').value = p.email || '';
+  experienceData = p.experience || [];
+  renderExperience();
 }
 
 async function saveProfile() {
@@ -286,7 +288,45 @@ function showToast(msg, type = 'success') {
   t.textContent = msg; t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
 }
+// ── EXPERIENCE ────────────────────────────────────────
+let experienceData = [];
 
+function renderExperience() {
+  document.getElementById('experienceList').innerHTML = experienceData.map((exp, i) => `
+    <div style="background:var(--navy-light);padding:1.25rem;border-radius:6px;border:1px solid var(--border);">
+      <div class="form-grid">
+        <div class="form-group"><label>Years</label><input type="text" value="${exp.years || ''}" onchange="experienceData[${i}].years=this.value" placeholder="2024 — Present"/></div>
+        <div class="form-group"><label>Role</label><input type="text" value="${exp.role || ''}" onchange="experienceData[${i}].role=this.value" placeholder="Software Developer"/></div>
+        <div class="form-group"><label>Company</label><input type="text" value="${exp.company || ''}" onchange="experienceData[${i}].company=this.value" placeholder="Company Name"/></div>
+        <div class="form-group"><label>Order</label><input type="number" value="${exp.order || i+1}" onchange="experienceData[${i}].order=parseInt(this.value)"/></div>
+        <div class="form-group full"><label>Description</label><textarea onchange="experienceData[${i}].description=this.value">${exp.description || ''}</textarea></div>
+        <div class="form-group full">
+          <button class="btn btn-danger" style="padding:0.4rem 0.75rem;" onclick="removeExperience(${i})">Remove</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addExperience() {
+  experienceData.push({ order: experienceData.length + 1, years: '', role: '', company: '', description: '' });
+  renderExperience();
+}
+
+function removeExperience(index) {
+  experienceData.splice(index, 1);
+  renderExperience();
+}
+
+async function saveExperience() {
+  const res = await fetch(`${API_URL}/api/admin/experience`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ experience: experienceData })
+  });
+  if (!res.ok) { showToast('Failed to save experience', 'error'); return; }
+  showToast('Experience saved! ✓');
+}
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
