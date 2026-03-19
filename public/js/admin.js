@@ -348,14 +348,18 @@ function showTab(name) {
   document.getElementById('messageModal').classList.add('active');
 
   if (!read) {
-    await adminSupabase.from('messages').update({ read: true }).eq('id', id);
+    await fetch(`${API_URL}/api/admin/messages/${id}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ read: true })
+  });
     loadMessages(); loadDashboard();
   }
 }
 
 async function deleteMessage(id) {
   if (!confirm('Delete this message?')) return;
-  await adminSupabase.from('messages').delete().eq('id', id);
+  await fetch(`${API_URL}/api/admin/messages/${id}`, { method: 'DELETE' });
   closeMessageModal(); loadMessages(); loadDashboard();
   showToast('Message deleted');
 }
