@@ -282,12 +282,6 @@ async function saveProfile() {
   showToast('Profile saved! ✓');
 }
 
-// ── UTILS ─────────────────────────────────────────────
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
 // ── EXPERIENCE ────────────────────────────────────────
 let experienceData = [];
 
@@ -326,91 +320,6 @@ async function saveExperience() {
   });
   if (!res.ok) { showToast('Failed to save experience', 'error'); return; }
   showToast('Experience saved! ✓');
-}
-function showTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
-}  currentMessageId = id;
-  document.getElementById('messageModalBody').innerHTML = `
-    <div style="display:grid;gap:0.75rem;">
-      <div style="display:grid;grid-template-columns:80px 1fr;gap:0.5rem;font-size:0.9rem;">
-        <span style="color:var(--muted)">From</span><strong>${name}</strong>
-        <span style="color:var(--muted)">Email</span><a href="mailto:${email}" style="color:var(--blue-light)">${email}</a>
-        <span style="color:var(--muted)">Subject</span><span>${subject}</span>
-      </div>
-      <div style="background:var(--navy-light);padding:1.25rem;border-radius:8px;color:var(--muted);font-size:0.9rem;line-height:1.8;margin-top:0.5rem;">
-        ${message.replace(/\n/g,'<br>')}
-      </div>
-    </div>`;
-  document.getElementById('msgDeleteBtn').onclick = () => deleteMessage(id);
-  document.getElementById('messageModal').classList.add('active');
-
-  if (!read) {
-    await fetch(`${API_URL}/api/admin/messages/${id}`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ read: true })
-  });
-    loadMessages(); loadDashboard();
-  }
-}
-
-async function deleteMessage(id) {
-  if (!confirm('Delete this message?')) return;
-  await fetch(`${API_URL}/api/admin/messages/${id}`, { method: 'DELETE' });
-  closeMessageModal(); loadMessages(); loadDashboard();
-  showToast('Message deleted');
-}
-
-function closeMessageModal() { document.getElementById('messageModal').classList.remove('active'); }
-
-// ── PROFILE ───────────────────────────────────────────
-async function loadProfile() {
-  const { data: p } = await adminSupabase.from('profile').select('*').single();
-  if (!p) return;
-
-  document.getElementById('profileName').value = p.name || '';
-  document.getElementById('profileTagline').value = p.tagline || '';
-  document.getElementById('profileBio').value = (p.bio || []).join('\n');
-  document.getElementById('profileSkills').value = (p.skills || []).join(', ');
-  document.getElementById('statYears').value = p.years_experience || '';
-  document.getElementById('statProjects').value = p.projects_shipped || '';
-  document.getElementById('statClients').value = p.happy_clients || '';
-  document.getElementById('profileAvailability').value = p.availability || '';
-  document.getElementById('socialGithub').value = p.github_url || '';
-  document.getElementById('socialLinkedin').value = p.linkedin_url || '';
-  document.getElementById('socialInstagram').value = p.instagram_url || '';
-  document.getElementById('socialWhatsapp').value = p.whatsapp_url || '';
-  document.getElementById('socialEmail').value = p.email || '';
-}
-
-async function saveProfile() {
-  const body = {
-    name: document.getElementById('profileName').value,
-    tagline: document.getElementById('profileTagline').value,
-    bio: document.getElementById('profileBio').value.split('\n').filter(Boolean),
-    skills: document.getElementById('profileSkills').value.split(',').map(s => s.trim()).filter(Boolean),
-    years_experience: document.getElementById('statYears').value,
-    projects_shipped: document.getElementById('statProjects').value,
-    happy_clients: document.getElementById('statClients').value,
-    availability: document.getElementById('profileAvailability').value,
-    github_url: document.getElementById('socialGithub').value,
-    linkedin_url: document.getElementById('socialLinkedin').value,
-    instagram_url: document.getElementById('socialInstagram').value,
-    whatsapp_url: document.getElementById('socialWhatsapp').value,
-    email: document.getElementById('socialEmail').value,
-    updated_at: new Date().toISOString()
-  };
-
-  const { data } = await adminSupabase.from('profile').select('id').single();
-  const { error } = data
-    ? await adminSupabase.from('profile').update(body).eq('id', data.id)
-    : await adminSupabase.from('profile').insert(body);
-
-  if (error) { showToast('Failed to save: ' + error.message, 'error'); return; }
-  showToast('Profile saved! ✓');
 }
 
 // ── UTILS ─────────────────────────────────────────────
