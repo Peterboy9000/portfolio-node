@@ -1,13 +1,9 @@
 // js/admin.js
 // ================================================
-// ADMIN PANEL — Supabase powered
+// ADMIN PANEL — Node.js API powered
 // ================================================
 
-const SUPABASE_URL = 'https://kjvhnjycerrcesulttou.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqdmhuanljZXJyY2VzdWx0dG91Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjE2NjkzNiwiZXhwIjoyMDg3NzQyOTM2fQ.vKSLLlbYVP8ErMXS0RzuoWt0tot6WYBe-nzad1cGZEk'; // Keep this secret! Never expose in frontend
-
-// For admin panel, use service role key for full DB access
-const adminSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const API_URL = '';
 
 let currentMessageId = null;
 let editingProjectId = null;
@@ -20,19 +16,13 @@ async function login() {
   err.style.display = 'none';
 
   try {
-    // Check admin_users table
-    const { data, error } = await adminSupabase
-      .from('admin_users')
-      .select('*')
-      .eq('username', username)
-      .single();
+    const res = await fetch(`${API_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
 
-    if (error || !data) {
-      err.textContent = 'Invalid credentials'; err.style.display = 'block'; return;
-    }
-
-    // Simple password check (in production use bcrypt via Edge Function)
-    if (data.password_hash !== btoa(password)) {
+    if (!res.ok) {
       err.textContent = 'Invalid credentials'; err.style.display = 'block'; return;
     }
 
@@ -55,43 +45,39 @@ function showApp() {
   loadDashboard(); loadProjects(); loadMessages(); loadProfile();
 }
 
-// Check if already logged in
 if (sessionStorage.getItem('admin_auth')) showApp();
 
 // ── DASHBOARD ─────────────────────────────────────────
 async function loadDashboard() {
   try {
-    const [
-      { count: pageViews },
-      { count: projectViews },
-      { count: totalMessages },
-      { count: unreadMessages },
-      { data: topProjects },
-      { data: recentMessages }
-    ] = await Promise.all([
-      adminSupabase.from('analytics').select('*', { count: 'exact', head: true }).eq('type', 'page_view'),
-      adminSupabase.from('analytics').select('*', { count: 'exact', head: true }).eq('type', 'project_view'),
-      adminSupabase.from('messages').select('*', { count: 'exact', head: true }),
-      adminSupabase.from('messages').select('*', { count: 'exact', head: true }).eq('read', false),
-      adminSupabase.from('projects').select('id, title, emoji, views').order('views', { ascending: false }).limit(6),
-      adminSupabase.from('messages').select('id, name, email, subject, read, created_at').order('created_at', { ascending: false }).limit(5)
+    const [analytics, messages, projects] = await Promise.all([
+      fetch(`${API_URL}/api/admin/analytics`).then(r => r.json()),
+      fetch(`${API_URL}/api/admin/messages`).then(r => r.json()),
+      fetch(`${API_URL}/api/admin/projects`).then(r => r.json())
     ]);
 
-    document.getElementById('statPageViews').textContent = (pageViews || 0).toLocaleString();
-    document.getElementById('statProjectViews').textContent = (projectViews || 0).toLocaleString();
-    document.getElementById('statMessages').textContent = totalMessages || 0;
-    document.getElementById('statUnread').textContent = unreadMessages || 0;
+    const pageViews = analytics.filter(a => a.type === 'page_view').length;
+    const projectViews = analytics.filter(a => a.type === 'project_view').length;
+    const totalMessages = messages.length;
+    const unreadMessages = messages.filter(m => !m.read).length;
+
+    document.getElementById('statPageViews').textContent = pageViews.toLocaleString();
+    document.getElementById('statProjectViews').textContent = projectViews.toLocaleString();
+    document.getElementById('statMessages').textContent = totalMessages;
+    document.getElementById('statUnread').textContent = unreadMessages;
 
     if (unreadMessages > 0) {
       const b = document.getElementById('unreadBadge');
       b.textContent = unreadMessages; b.style.display = 'inline-block';
     }
 
-    document.getElementById('topProjectsTable').innerHTML = (topProjects || []).map(p => `
+    const topProjects = [...projects].sort((a, b) => b.views - a.views).slice(0, 6);
+    document.getElementById('topProjectsTable').innerHTML = topProjects.map(p => `
       <tr><td>${p.emoji} ${p.title}</td><td><span class="badge badge-blue">${p.views}</span></td></tr>
     `).join('') || '<tr><td colspan="2" class="empty-state">No data yet</td></tr>';
 
-    document.getElementById('recentMessagesTable').innerHTML = (recentMessages || []).map(m => `
+    const recentMessages = [...messages].slice(0, 5);
+    document.getElementById('recentMessagesTable').innerHTML = recentMessages.map(m => `
       <tr>
         <td>${m.read ? '' : '<span class="unread-dot"></span>'}${m.name}</td>
         <td>${m.subject}</td>
@@ -104,10 +90,8 @@ async function loadDashboard() {
 
 // ── PROJECTS ──────────────────────────────────────────
 async function loadProjects() {
-  const { data: projects, error } = await adminSupabase
-    .from('projects').select('*').order('display_order', { ascending: true });
-
-  if (error) { console.error(error); return; }
+  const res = await fetch(`${API_URL}/api/admin/projects`);
+  const projects = await res.json();
 
   document.getElementById('projectsTable').innerHTML = (projects || []).map(p => `
     <tr>
@@ -147,8 +131,10 @@ function closeProjectModal() {
 }
 
 async function editProject(id) {
-  const { data } = await adminSupabase.from('projects').select('*').eq('id', id).single();
-  if (data) openProjectModal(data);
+  const res = await fetch(`${API_URL}/api/admin/projects`);
+  const projects = await res.json();
+  const project = projects.find(p => p.id === id);
+  if (project) openProjectModal(project);
 }
 
 async function saveProject() {
@@ -169,31 +155,33 @@ async function saveProject() {
     }
   };
 
-  let error;
-  if (editingProjectId) {
-    ({ error } = await adminSupabase.from('projects').update(body).eq('id', editingProjectId));
-  } else {
-    ({ error } = await adminSupabase.from('projects').insert(body));
-  }
+  const url = editingProjectId
+    ? `${API_URL}/api/admin/projects/${editingProjectId}`
+    : `${API_URL}/api/admin/projects`;
+  const method = editingProjectId ? 'PUT' : 'POST';
 
-  if (error) { showToast('Failed to save: ' + error.message, 'error'); return; }
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) { showToast('Failed to save', 'error'); return; }
   closeProjectModal(); loadProjects(); loadDashboard();
   showToast(editingProjectId ? 'Project updated!' : 'Project created!');
 }
 
 async function deleteProject(id) {
   if (!confirm('Delete this project?')) return;
-  const { error } = await adminSupabase.from('projects').delete().eq('id', id);
-  if (error) { showToast('Failed to delete', 'error'); return; }
+  const res = await fetch(`${API_URL}/api/admin/projects/${id}`, { method: 'DELETE' });
+  if (!res.ok) { showToast('Failed to delete', 'error'); return; }
   loadProjects(); loadDashboard(); showToast('Project deleted');
 }
 
 // ── MESSAGES ──────────────────────────────────────────
 async function loadMessages() {
-  const { data: messages, error } = await adminSupabase
-    .from('messages').select('*').order('created_at', { ascending: false });
-
-  if (error) { console.error(error); return; }
+  const res = await fetch(`${API_URL}/api/admin/messages`);
+  const messages = await res.json();
 
   document.getElementById('messagesTable').innerHTML = (messages || []).map(m => `
     <tr>
@@ -210,6 +198,101 @@ async function loadMessages() {
 
 async function viewMessage(id, name, email, subject, message, read) {
   currentMessageId = id;
+  document.getElementById('messageModalBody').innerHTML = `
+    <div style="display:grid;gap:0.75rem;">
+      <div style="display:grid;grid-template-columns:80px 1fr;gap:0.5rem;font-size:0.9rem;">
+        <span style="color:var(--muted)">From</span><strong>${name}</strong>
+        <span style="color:var(--muted)">Email</span><a href="mailto:${email}" style="color:var(--blue-light)">${email}</a>
+        <span style="color:var(--muted)">Subject</span><span>${subject}</span>
+      </div>
+      <div style="background:var(--navy-light);padding:1.25rem;border-radius:8px;color:var(--muted);font-size:0.9rem;line-height:1.8;margin-top:0.5rem;">
+        ${message.replace(/\n/g,'<br>')}
+      </div>
+    </div>`;
+  document.getElementById('msgDeleteBtn').onclick = () => deleteMessage(id);
+  document.getElementById('messageModal').classList.add('active');
+
+  if (!read) {
+    await fetch(`${API_URL}/api/admin/messages/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read: true })
+    });
+    loadMessages(); loadDashboard();
+  }
+}
+
+async function deleteMessage(id) {
+  if (!confirm('Delete this message?')) return;
+  await fetch(`${API_URL}/api/admin/messages/${id}`, { method: 'DELETE' });
+  closeMessageModal(); loadMessages(); loadDashboard();
+  showToast('Message deleted');
+}
+
+function closeMessageModal() { document.getElementById('messageModal').classList.remove('active'); }
+
+// ── PROFILE ───────────────────────────────────────────
+async function loadProfile() {
+  const res = await fetch(`${API_URL}/api/admin/profile`);
+  const p = await res.json();
+  if (!p) return;
+
+  document.getElementById('profileName').value = p.name || '';
+  document.getElementById('profileTagline').value = p.tagline || '';
+  document.getElementById('profileBio').value = (p.bio || []).join('\n');
+  document.getElementById('profileSkills').value = (p.skills || []).join(', ');
+  document.getElementById('statYears').value = p.years_experience || '';
+  document.getElementById('statProjects').value = p.projects_shipped || '';
+  document.getElementById('statClients').value = p.happy_clients || '';
+  document.getElementById('profileAvailability').value = p.availability || '';
+  document.getElementById('socialGithub').value = p.github_url || '';
+  document.getElementById('socialLinkedin').value = p.linkedin_url || '';
+  document.getElementById('socialInstagram').value = p.instagram_url || '';
+  document.getElementById('socialWhatsapp').value = p.whatsapp_url || '';
+  document.getElementById('socialEmail').value = p.email || '';
+}
+
+async function saveProfile() {
+  const body = {
+    name: document.getElementById('profileName').value,
+    tagline: document.getElementById('profileTagline').value,
+    bio: document.getElementById('profileBio').value.split('\n').filter(Boolean),
+    skills: document.getElementById('profileSkills').value.split(',').map(s => s.trim()).filter(Boolean),
+    years_experience: document.getElementById('statYears').value,
+    projects_shipped: document.getElementById('statProjects').value,
+    happy_clients: document.getElementById('statClients').value,
+    availability: document.getElementById('profileAvailability').value,
+    github_url: document.getElementById('socialGithub').value,
+    linkedin_url: document.getElementById('socialLinkedin').value,
+    instagram_url: document.getElementById('socialInstagram').value,
+    whatsapp_url: document.getElementById('socialWhatsapp').value,
+    email: document.getElementById('socialEmail').value,
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await fetch(`${API_URL}/api/admin/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) { showToast('Failed to save', 'error'); return; }
+  showToast('Profile saved! ✓');
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}  currentMessageId = id;
   document.getElementById('messageModalBody').innerHTML = `
     <div style="display:grid;gap:0.75rem;">
       <div style="display:grid;grid-template-columns:80px 1fr;gap:0.5rem;font-size:0.9rem;">
